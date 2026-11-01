@@ -96,6 +96,12 @@ a.dl{display:block;text-align:center;background:var(--acc);color:#fff;border-rad
 <option value="4000000">လတ် — ~0.5MB/စက္ကန့်</option>
 <option value="1500000">နိမ့် — ~0.2MB/စက္ကန့်</option>
 </select>
+<label class="fl">အရွယ် (resolution) — ဖိုင်ဆိုဒ် အဓိက ဒါနဲ့ထိန်း</label>
+<select id="sRes">
+<option value="orig">မူလအတိုင်း</option>
+<option value="720" selected>720p</option>
+<option value="480">480p</option>
+</select>
 <div class="prog" id="sizeEst"></div>
 <button class="btn btn-p" id="bBurn">🔥 စာတန်းကပ်ပြီး ထုတ်မယ် (burn-in)</button>
 <div class="prog" id="expMsg"></div>
@@ -112,7 +118,8 @@ const S = {
   cues: [],
   font: "'Noto Sans Myanmar',sans-serif",
   size: 44, color: '#ffffff',
-  quality: 'auto'
+  quality: 'auto',
+  res: '720'
 };
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -300,12 +307,23 @@ function effRates(){
   const ab = vb > 2000000 ? 128000 : 64000;
   return {vb:vb, ab:ab};
 }
+function outSize(){
+  const vw = v.videoWidth || 1280, vh = v.videoHeight || 720;
+  if(S.res === 'orig') return [vw, vh];
+  const maxD = S.res === '480' ? 854 : 1280;
+  const m = Math.max(vw, vh);
+  if(m <= maxD) return [vw, vh];
+  const s = maxD / m;
+  return [Math.round(vw*s/2)*2, Math.round(vh*s/2)*2];
+}
 function updateSizeEst(){
   const z = $('sizeEst'); if(!z) return;
   const dur = v.duration;
   if(!dur || !isFinite(dur)){ z.textContent = ''; return; }
+  const d = outSize();
   const r = effRates();
-  const mb = (r.vb + r.ab) / 8 * dur / 1048576;
+  const bps = d[0]*d[1]*1.5;
+  const mb = (bps + r.ab) / 8 * dur / 1048576;
   z.textContent = 'ခန့်မှန်းဖိုင်ဆိုဒ်: ~' + mb.toFixed(mb < 10 ? 1 : 0) + 'MB';
 }
 $('sQuality').addEventListener('change', e=>{
@@ -313,6 +331,7 @@ $('sQuality').addEventListener('change', e=>{
   S.quality = val === 'auto' ? 'auto' : +val;
   updateSizeEst();
 });
+$('sRes').addEventListener('change', e=>{ S.res = e.target.value; updateSizeEst(); });
 v.addEventListener('loadedmetadata', updateSizeEst);
 function pickMime(){
   if(!window.MediaRecorder) return '';
@@ -366,10 +385,10 @@ async function exportBurnIn(){
   try{ wake = await navigator.wakeLock.request('screen').catch(()=>null); }catch(e){}
   try{
     try{ await document.fonts.load('700 40px ' + S.font); }catch(e){}
-    const vw = v.videoWidth || 1280, vh = v.videoHeight || 720;
-    const scale = vw / 760;
+    const dims = outSize(), cw = dims[0], ch = dims[1];
+    const scale = cw / 760;
     const canvas = document.createElement('canvas');
-    canvas.width = vw; canvas.height = vh;
+    canvas.width = cw; canvas.height = ch;
     const ctx = canvas.getContext('2d');
     const stream = canvas.captureStream(30);
     const aud = ensureAudio();
@@ -386,9 +405,9 @@ async function exportBurnIn(){
     let live = true, raf = 0;
     const draw = ()=>{
       if(!live) return;
-      ctx.drawImage(v, 0, 0, vw, vh);
+      ctx.drawImage(v, 0, 0, cw, ch);
       const c = activeCue(v.currentTime);
-      if(c) drawSub(ctx, c.text, vw, vh, scale);
+      if(c) drawSub(ctx, c.text, cw, ch, scale);
       const p = Math.round(v.currentTime / (v.duration || 1) * 100);
       msg.textContent = 'ထုတ်နေတယ်… ' + p + '%';
       raf = requestAnimationFrame(draw);
