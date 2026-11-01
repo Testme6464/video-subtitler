@@ -89,6 +89,13 @@ a.dl{display:block;text-align:center;background:var(--acc);color:#fff;border-rad
 
 <div class="card hidden" id="cExp">
 <h2>၄ · Video ထုတ်မယ်</h2>
+<label class="fl">အရည်အသွေး (ဖိုင်ဆိုဒ်)</label>
+<select id="sQuality">
+<option value="8000000">မြင့် — ~1MB/စက္ကန့်</option>
+<option value="4000000">လတ် — ~0.5MB/စက္ကန့်</option>
+<option value="1500000">နိမ့် — ~0.2MB/စက္ကန့်</option>
+</select>
+<div class="prog" id="sizeEst"></div>
 <button class="btn btn-p" id="bBurn">🔥 စာတန်းကပ်ပြီး ထုတ်မယ် (burn-in)</button>
 <div class="prog" id="expMsg"></div>
 <div id="dlZone"></div>
@@ -103,7 +110,8 @@ const S = {
   videoFile: null, videoURL: '', videoName: '',
   cues: [],
   font: "'Noto Sans Myanmar',sans-serif",
-  size: 44, color: '#ffffff'
+  size: 44, color: '#ffffff',
+  quality: 8000000
 };
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -155,7 +163,7 @@ function baseName(n){return (n||'video').replace(/\.[^.]+$/,'')||'video';}
 /* ---------- loading ---------- */
 const v = $('v'), cap = $('cap');
 function maybeShowExport(){
-  if(S.videoFile && S.cues.length) $('cExp').classList.remove('hidden');
+  if(S.videoFile && S.cues.length){ $('cExp').classList.remove('hidden'); updateSizeEst(); }
 }
 $('fVideo').addEventListener('change', e=>{
   const f = e.target.files[0]; if(!f) return;
@@ -280,6 +288,15 @@ function showDownload(zone, blob, name){
 }
 
 /* ---------- burn-in export ---------- */
+function updateSizeEst(){
+  const z = $('sizeEst'); if(!z) return;
+  const dur = v.duration;
+  if(!dur || !isFinite(dur)){ z.textContent = ''; return; }
+  const mb = (S.quality + 128000) / 8 * dur / 1048576;
+  z.textContent = 'ခန့်မှန်းဖိုင်ဆိုဒ်: ~' + mb.toFixed(mb < 10 ? 1 : 0) + 'MB';
+}
+$('sQuality').addEventListener('change', e=>{ S.quality = +e.target.value; updateSizeEst(); });
+v.addEventListener('loadedmetadata', updateSizeEst);
 function pickMime(){
   if(!window.MediaRecorder) return '';
   const cs = ['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
@@ -344,7 +361,7 @@ async function exportBurnIn(){
       aud.dest.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
     }
     const mime = pickMime();
-    const rec = new MediaRecorder(stream, mime ? {mimeType:mime, videoBitsPerSecond:8000000} : undefined);
+    const rec = new MediaRecorder(stream, mime ? {mimeType:mime, videoBitsPerSecond:S.quality} : undefined);
     const chunks = [];
     rec.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
     const stopped = new Promise(r=>{ rec.onstop = r; });
