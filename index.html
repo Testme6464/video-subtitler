@@ -90,10 +90,9 @@ a.dl{display:block;text-align:center;background:var(--acc);color:#fff;border-rad
 <div class="card hidden" id="cExp">
 <h2>၄ · Video ထုတ်မယ်</h2>
 <button class="btn btn-p" id="bBurn">🔥 စာတန်းကပ်ပြီး ထုတ်မယ် (burn-in)</button>
-<button class="btn btn-s" id="bRemux">⚡ စာတန်း တွဲထည့်မယ် (အမြန်, remux)</button>
 <div class="prog" id="expMsg"></div>
 <div id="dlZone"></div>
-<p class="note">burn-in က စာတန်းကို video ထဲ ရေးထည့်တာ (ဖုန်းတိုင်းဖွင့်ရ) · remux က စာတန်းဖိုင်ကို တွဲထည့်တာ (ပိုမြန်, player က စာတန်း ဖွင့်/ပိတ်လို့ရ)</p>
+<p class="note">burn-in က စာတန်းကို video ထဲ အသေရေးထည့်တာ — TikTok, YouTube, Facebook မှာ တင်လည်း စာတန်းပေါ်တယ်</p>
 </div>
 
 </div>
@@ -381,63 +380,6 @@ async function exportBurnIn(){
   btn.disabled = false;
 }
 $('bBurn').addEventListener('click', exportBurnIn);
-
-/* ---------- remux export (ffmpeg.wasm, soft subtitles) ---------- */
-const FF_PKG_CDNS = [
-  'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/+esm',
-  'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/+esm',
-  'https://esm.sh/@ffmpeg/ffmpeg@0.12.10'
-];
-const FF_CORE_CDNS = [
-  'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/',
-  'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/',
-  'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/'
-];
-async function firstImport(urls){
-  let lastErr = null;
-  for(const u of urls){ try{ return await import(u); }catch(e){ lastErr = e; } }
-  throw lastErr || new Error('import failed');
-}
-async function exportRemux(){
-  const msg = $('expMsg'), dl = $('dlZone');
-  dl.innerHTML = '';
-  if(!S.videoFile || !S.cues.length){msg.textContent = 'Video နဲ့ စာတန်း အရင်ရွေးပါ'; return;}
-  const btn = $('bRemux'); btn.disabled = true;
-  try{
-    msg.textContent = 'engine ပြင်နေတယ်… (ပထမအကြိမ်သာ down ရမယ်)';
-    const FF = await firstImport(FF_PKG_CDNS);
-    const ffmpeg = new FF.FFmpeg();
-    let loaded = false, lastErr = null;
-    for(const base of FF_CORE_CDNS){
-      try{
-        await ffmpeg.load({
-          classWorkerURL: location.origin + '/ffmpeg/ffmpeg/worker.js',
-          coreURL: base + 'ffmpeg-core.js',
-          wasmURL: base + 'ffmpeg-core.wasm'
-        });
-        loaded = true; break;
-      }catch(e){ lastErr = e; }
-    }
-    if(!loaded) throw lastErr || new Error('ffmpeg engine down မရ');
-    msg.textContent = 'ဖိုင်တွေ ထည့်နေတယ်…';
-    const inName = 'in' + extOf(S.videoName);
-    await ffmpeg.writeFile(inName, new Uint8Array(await S.videoFile.arrayBuffer()));
-    await ffmpeg.writeFile('sub.srt', toSRT(S.cues));
-    msg.textContent = 'တွဲနေတယ်…';
-    await ffmpeg.exec(['-i', inName, '-i', 'sub.srt', '-c', 'copy', '-c:s', 'mov_text', '-movflags', '+faststart', 'out.mp4']);
-    const data = await ffmpeg.readFile('out.mp4');
-    const buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-    const blob = new Blob([buf], {type:'video/mp4'});
-    const name = baseName(S.videoName) + '.subtitled.mp4';
-    showDownload(dl, blob, name);
-    msg.textContent = 'ထုတ်ပြီးပြီ ✓ (' + (blob.size/1048576).toFixed(1) + ' MB) — အပေါ်က လင့်ခ်ကို နှိပ်ပြီး ဒေါင်းပါ';
-    try{ ffmpeg.terminate(); }catch(e){}
-  }catch(err){
-    msg.textContent = 'မအောင်မြင်ပါ: ' + (err && err.message || err);
-  }
-  btn.disabled = false;
-}
-$('bRemux').addEventListener('click', exportRemux);
 
 /* ---------- init ---------- */
 applyStyle();
