@@ -388,11 +388,6 @@ const FF_PKG_CDNS = [
   'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/+esm',
   'https://esm.sh/@ffmpeg/ffmpeg@0.12.10'
 ];
-const FF_UTIL_CDNS = [
-  'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/+esm',
-  'https://unpkg.com/@ffmpeg/util@0.12.1/+esm',
-  'https://esm.sh/@ffmpeg/util@0.12.1'
-];
 const FF_CORE_CDNS = [
   'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/',
   'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/',
@@ -411,12 +406,12 @@ async function exportRemux(){
   try{
     msg.textContent = 'engine ပြင်နေတယ်… (ပထမအကြိမ်သာ down ရမယ်)';
     const FF = await firstImport(FF_PKG_CDNS);
-    const UTIL = await firstImport(FF_UTIL_CDNS);
     const ffmpeg = new FF.FFmpeg();
     let loaded = false, lastErr = null;
     for(const base of FF_CORE_CDNS){
       try{
         await ffmpeg.load({
+          classWorkerURL: location.origin + '/ffmpeg/ffmpeg/worker.js',
           coreURL: base + 'ffmpeg-core.js',
           wasmURL: base + 'ffmpeg-core.wasm'
         });
@@ -426,7 +421,7 @@ async function exportRemux(){
     if(!loaded) throw lastErr || new Error('ffmpeg engine down မရ');
     msg.textContent = 'ဖိုင်တွေ ထည့်နေတယ်…';
     const inName = 'in' + extOf(S.videoName);
-    await ffmpeg.writeFile(inName, await UTIL.fetchFile(S.videoFile));
+    await ffmpeg.writeFile(inName, new Uint8Array(await S.videoFile.arrayBuffer()));
     await ffmpeg.writeFile('sub.srt', toSRT(S.cues));
     msg.textContent = 'တွဲနေတယ်…';
     await ffmpeg.exec(['-i', inName, '-i', 'sub.srt', '-c', 'copy', '-c:s', 'mov_text', '-movflags', '+faststart', 'out.mp4']);
