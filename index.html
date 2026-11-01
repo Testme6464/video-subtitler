@@ -91,6 +91,7 @@ a.dl{display:block;text-align:center;background:var(--acc);color:#fff;border-rad
 <h2>၄ · Video ထုတ်မယ်</h2>
 <label class="fl">အရည်အသွေး (ဖိုင်ဆိုဒ်)</label>
 <select id="sQuality">
+<option value="auto" selected>မူလအတိုင်း (auto)</option>
 <option value="8000000">မြင့် — ~1MB/စက္ကန့်</option>
 <option value="4000000">လတ် — ~0.5MB/စက္ကန့်</option>
 <option value="1500000">နိမ့် — ~0.2MB/စက္ကန့်</option>
@@ -111,7 +112,7 @@ const S = {
   cues: [],
   font: "'Noto Sans Myanmar',sans-serif",
   size: 44, color: '#ffffff',
-  quality: 8000000
+  quality: 'auto'
 };
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -288,14 +289,30 @@ function showDownload(zone, blob, name){
 }
 
 /* ---------- burn-in export ---------- */
+function autoBitrate(){
+  const dur = v.duration;
+  if(!dur || !isFinite(dur) || !S.videoFile) return 4000000;
+  const bps = S.videoFile.size / dur * 8;
+  return Math.round(Math.min(12000000, Math.max(300000, bps)));
+}
+function effRates(){
+  const vb = S.quality === 'auto' ? autoBitrate() : S.quality;
+  const ab = vb > 2000000 ? 128000 : 64000;
+  return {vb:vb, ab:ab};
+}
 function updateSizeEst(){
   const z = $('sizeEst'); if(!z) return;
   const dur = v.duration;
   if(!dur || !isFinite(dur)){ z.textContent = ''; return; }
-  const mb = (S.quality + 128000) / 8 * dur / 1048576;
+  const r = effRates();
+  const mb = (r.vb + r.ab) / 8 * dur / 1048576;
   z.textContent = 'ခန့်မှန်းဖိုင်ဆိုဒ်: ~' + mb.toFixed(mb < 10 ? 1 : 0) + 'MB';
 }
-$('sQuality').addEventListener('change', e=>{ S.quality = +e.target.value; updateSizeEst(); });
+$('sQuality').addEventListener('change', e=>{
+  const val = e.target.value;
+  S.quality = val === 'auto' ? 'auto' : +val;
+  updateSizeEst();
+});
 v.addEventListener('loadedmetadata', updateSizeEst);
 function pickMime(){
   if(!window.MediaRecorder) return '';
@@ -361,7 +378,8 @@ async function exportBurnIn(){
       aud.dest.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
     }
     const mime = pickMime();
-    const rec = new MediaRecorder(stream, mime ? {mimeType:mime, videoBitsPerSecond:S.quality} : undefined);
+    const rt = effRates();
+    const rec = new MediaRecorder(stream, mime ? {mimeType:mime, videoBitsPerSecond:rt.vb, audioBitsPerSecond:rt.ab} : undefined);
     const chunks = [];
     rec.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
     const stopped = new Promise(r=>{ rec.onstop = r; });
