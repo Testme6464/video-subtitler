@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d7a4f">
+<title>Video Subtitler — စာတန်းထိုးမယ်</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Myanmar:wght@400;600;700&family=Padauk:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#1c2530;--mut:#66727f;--acc:#0d7a4f;--acc-d:#0a5f3e;--line:#e3e8ed}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans Myanmar","Padauk",system-ui,sans-serif;line-height:1.6}
+.wrap{max-width:760px;margin:0 auto;padding:14px 14px 60px}
+h1{font-size:22px;margin:6px 0 2px}
+.sub{color:var(--mut);font-size:13px;margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+.card h2{font-size:16px;margin:0 0 10px}
+label.fl{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+input[type=file]{width:100%}
+textarea{width:100%;min-height:90px;border:1px solid var(--line);border-radius:10px;padding:8px;font-family:inherit;font-size:13px}
+.btn{display:block;width:100%;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;margin:8px 0}
+.btn-p{background:var(--acc);color:#fff}
+.btn-p:active{background:var(--acc-d)}
+.btn-s{background:#eef2f5;color:var(--ink)}
+.btn:disabled{opacity:.5}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+select,input[type=text]{border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-family:inherit;font-size:14px;max-width:100%}
+input[type=range]{width:100%}
+.swatches{display:flex;gap:8px;margin:6px 0;flex-wrap:wrap}
+.sw{width:34px;height:34px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer}
+#stage{position:relative;background:#000;border-radius:12px;overflow:hidden}
+#stage video{width:100%;display:block;max-height:62vh}
+#cap{position:absolute;left:0;right:0;bottom:6%;text-align:center;pointer-events:none;padding:0 12px;font-weight:700;overflow-wrap:anywhere}
+.cue{border:1px solid var(--line);border-radius:10px;padding:8px;margin:8px 0}
+.cue .trow{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.cue input.tt{width:104px;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-family:inherit}
+.cue textarea{min-height:44px;font-size:14px;margin:0}
+.mini{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 9px;font-size:13px;font-family:inherit;cursor:pointer}
+.prog{font-size:13px;color:var(--mut);min-height:20px;white-space:pre-wrap}
+a.dl{display:block;text-align:center;background:var(--acc);color:#fff;border-radius:12px;padding:13px;font-weight:700;text-decoration:none;margin:8px 0;overflow-wrap:anywhere}
+.note{font-size:12px;color:var(--mut)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>🎬 Video Subtitler</h1>
+<p class="sub">Video ထဲ စာတန်းထည့်မယ် — ကိုယ်ပိုင် site</p>
+
+<div class="card">
+<h2>၁ · ဖိုင်ရွေးမယ်</h2>
+<label class="fl">Video ဖိုင်</label>
+<input type="file" id="fVideo" accept="video/*">
+<label class="fl">SRT ဖိုင်</label>
+<input type="file" id="fSrt" accept=".srt,.vtt,.txt">
+<label class="fl">ဒါမှမဟုတ် SRT စာသား ကပ်ထည့်မယ်</label>
+<textarea id="tSrt" placeholder="1&#10;00:00:01,000 --> 00:00:04,000&#10;မင်္ဂလာပါ"></textarea>
+<button class="btn btn-s" id="bLoadSrt">SRT စာသား ထည့်မယ်</button>
+<div class="prog" id="loadMsg"></div>
+</div>
+
+<div class="card hidden" id="cPrev">
+<h2>၂ · အစမ်းကြည့်မယ်</h2>
+<div id="stage">
+<video id="v" controls playsinline></video>
+<div id="cap"></div>
+</div>
+<label class="fl">စာလုံး စတိုင်</label>
+<select id="sFont">
+<option value="'Noto Sans Myanmar',sans-serif">Noto Sans Myanmar</option>
+<option value="'Padauk',sans-serif">Padauk</option>
+<option value="sans-serif">Sans (ပုံမှန်)</option>
+<option value="serif">Serif</option>
+</select>
+<label class="fl">စာလုံး အရွယ် — <span id="sizeVal">44</span>px</label>
+<input type="range" id="rSize" min="20" max="110" value="44">
+<label class="fl">စာလုံး အရောင်</label>
+<div class="swatches" id="swatches"></div>
+<div class="row"><input type="color" id="cColor" value="#ffffff"><span class="note">ကိုယ်ကြိုက်တဲ့ အရောင်ရွေးလို့ရ</span></div>
+</div>
+
+<div class="card hidden" id="cEdit">
+<h2>၃ · စာတန်း ပြင်မယ် <span class="note" id="cueCount"></span></h2>
+<div id="cueList"></div>
+<button class="btn btn-s" id="bAddCue">+ စာတန်းအသစ် ထည့်မယ်</button>
+</div>
+
+<div class="card hidden" id="cExp">
+<h2>၄ · Video ထုတ်မယ်</h2>
+<button class="btn btn-p" id="bBurn">🔥 စာတန်းကပ်ပြီး ထုတ်မယ် (burn-in)</button>
+<button class="btn btn-s" id="bRemux">⚡ စာတန်း တွဲထည့်မယ် (အမြန်, remux)</button>
+<div class="prog" id="expMsg"></div>
+<div id="dlZone"></div>
+<p class="note">burn-in က စာတန်းကို video ထဲ ရေးထည့်တာ (ဖုန်းတိုင်းဖွင့်ရ) · remux က စာတန်းဖိုင်ကို တွဲထည့်တာ (ပိုမြန်, player က စာတန်း ဖွင့်/ပိတ်လို့ရ)</p>
+</div>
+
+</div>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const S = {
+  videoFile: null, videoURL: '', videoName: '',
+  cues: [],
+  font: "'Noto Sans Myanmar',sans-serif",
+  size: 44, color: '#ffffff'
+};
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* ---------- SRT ---------- */
+function ts2s(h,m,s,ms){return (+h)*3600+(+m)*60+(+s)+(+ms)/1000;}
+function parseSRT(text){
+  text = String(text||'').replace(/\r/g,'').replace(/^﻿/,'');
+  const blocks = text.split(/\n[ \t]*\n/);
+  const cues = [];
+  for(const b of blocks){
+    const lines = b.split('\n');
+    while(lines.length && lines[0].trim()==='') lines.shift();
+    while(lines.length && lines[lines.length-1].trim()==='') lines.pop();
+    if(lines.length < 2) continue;
+    let i = 0;
+    if(/^\d+$/.test(lines[0].trim())) i = 1;
+    const m = lines[i].match(/(\d+)[:.](\d+)[:.](\d+)[,.](\d+)\s*-->\s*(\d+)[:.](\d+)[:.](\d+)[,.](\d+)/);
+    if(!m) continue;
+    const tx = lines.slice(i+1).join('\n').trim();
+    if(!tx) continue;
+    cues.push({start:ts2s(m[1],m[2],m[3],m[4]), end:ts2s(m[5],m[6],m[7],m[8]), text:tx});
+  }
+  cues.sort((a,b)=>a.start-b.start);
+  return cues;
+}
+function s2ts(sec){
+  sec = Math.max(0, +sec || 0);
+  const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60),
+        s=Math.floor(sec%60), ms=Math.round((sec%1)*1000);
+  const p=(n,l)=>String(n).padStart(l,'0');
+  return p(h,2)+':'+p(m,2)+':'+p(s,2)+','+p(ms,3);
+}
+function parseTime(str){
+  str = String(str).trim();
+  if(/^[0-9]+(\.[0-9]+)?$/.test(str)) return parseFloat(str);
+  let m = str.match(/(?:(\d+):)?(\d+):(\d+)[,.](\d{1,3})/);
+  if(m){const ms=(m[4]+'000').slice(0,3);return (+(m[1]||0))*3600+(+m[2])*60+(+m[3])+(+ms)/1000;}
+  m = str.match(/(?:(\d+):)?(\d+(?:\.\d+)?)/);
+  if(m) return (+(m[1]||0))*60+parseFloat(m[2]);
+  return NaN;
+}
+function toSRT(cues){
+  return cues.map((c,i)=>(i+1)+'\n'+s2ts(c.start)+' --> '+s2ts(c.end)+'\n'+c.text+'\n').join('\n');
+}
+function extOf(n){const m=/\.[^.]+$/.exec(n||'');return m?m[0]:'.mp4';}
+function baseName(n){return (n||'video').replace(/\.[^.]+$/,'')||'video';}
+
+/* ---------- loading ---------- */
+const v = $('v'), cap = $('cap');
+function maybeShowExport(){
+  if(S.videoFile && S.cues.length) $('cExp').classList.remove('hidden');
+}
+$('fVideo').addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  if(S.videoURL) URL.revokeObjectURL(S.videoURL);
+  S.videoFile = f; S.videoName = f.name; S.videoURL = URL.createObjectURL(f);
+  v.src = S.videoURL;
+  $('cPrev').classList.remove('hidden');
+  maybeShowExport();
+  $('loadMsg').textContent = 'Video ရွေးပြီးပြီ: ' + f.name;
+  applyStyle();
+});
+function loadSrtText(text, src){
+  const cues = parseSRT(text);
+  if(!cues.length){$('loadMsg').textContent = 'SRT ထဲမှာ စာတန်းမတွေ့ဘူး ('+src+')';return;}
+  S.cues = cues;
+  $('loadMsg').textContent = 'စာတန်း ' + cues.length + ' ခု ရပြီ (' + src + ')';
+  renderEditor(); applyStyle(); syncCap();
+  $('cEdit').classList.remove('hidden');
+  maybeShowExport();
+}
+$('fSrt').addEventListener('change', async e=>{
+  const f = e.target.files[0]; if(!f) return;
+  loadSrtText(await f.text(), 'ဖိုင်');
+});
+$('bLoadSrt').addEventListener('click', ()=>{
+  const t = $('tSrt').value.trim();
+  if(!t){$('loadMsg').textContent = 'SRT စာသား အရင်ကပ်ထည့်ပါ';return;}
+  loadSrtText(t, 'စာသား');
+});
+
+/* ---------- preview ---------- */
+function activeCue(t){return S.cues.find(c=>t>=c.start && t<=c.end);}
+function syncCap(){
+  const c = activeCue(v.currentTime);
+  cap.innerHTML = c ? esc(c.text).replace(/\n/g,'<br>') : '';
+}
+v.addEventListener('timeupdate', syncCap);
+v.addEventListener('seeked', syncCap);
+
+/* ---------- style ---------- */
+const COLORS = ['#ffffff','#000000','#ffeb3b','#ff5252','#40c4ff','#69f0ae','#ff9e40'];
+(function renderSwatches(){
+  const z = $('swatches');
+  for(const c of COLORS){
+    const d = document.createElement('div');
+    d.className='sw'; d.style.background=c; d.title=c;
+    d.addEventListener('click', ()=>{S.color=c; $('cColor').value=c; applyStyle();});
+    z.appendChild(d);
+  }
+})();
+function applyStyle(){
+  const w = $('stage').clientWidth || 640;
+  const px = Math.max(14, Math.round(S.size * w / 760));
+  cap.style.fontFamily = S.font;
+  cap.style.fontSize = px + 'px';
+  cap.style.color = S.color;
+  cap.style.textShadow = '0 0 6px rgba(0,0,0,.9), -1px 0 0 rgba(0,0,0,.85), 1px 0 0 rgba(0,0,0,.85), 0 -1px 0 rgba(0,0,0,.85), 0 1px 0 rgba(0,0,0,.85)';
+  $('sizeVal').textContent = S.size;
+}
+$('sFont').addEventListener('change', e=>{S.font=e.target.value; applyStyle();});
+$('rSize').addEventListener('input', e=>{S.size=+e.target.value; applyStyle();});
+$('cColor').addEventListener('input', e=>{S.color=e.target.value; applyStyle();});
+window.addEventListener('resize', applyStyle);
+
+/* ---------- editor ---------- */
+function renderEditor(){
+  const z = $('cueList'); z.innerHTML='';
+  $('cueCount').textContent = '(' + S.cues.length + ' ခု)';
+  S.cues.forEach((c, idx)=>{
+    const d = document.createElement('div'); d.className='cue';
+    const head = document.createElement('div'); head.className='trow';
+    head.innerHTML = '<b>#'+(idx+1)+'</b>';
+    const mkInp = (k)=>{
+      const inp = document.createElement('input');
+      inp.className='tt'; inp.value = s2ts(c[k]);
+      inp.addEventListener('change', ()=>{
+        const s = parseTime(inp.value);
+        if(isNaN(s)){inp.value = s2ts(c[k]); return;}
+        c[k] = Math.max(0, s); inp.value = s2ts(c[k]); syncCap();
+      });
+      return inp;
+    };
+    const mkBtn = (label, fn)=>{
+      const b = document.createElement('button');
+      b.className='mini'; b.textContent=label; b.type='button';
+      b.addEventListener('click', fn);
+      return b;
+    };
+    head.appendChild(mkInp('start'));
+    head.appendChild(mkBtn('−.5', ()=>{c.start=Math.max(0,c.start-0.5); renderEditor(); syncCap();}));
+    head.appendChild(mkBtn('+.5', ()=>{c.start=c.start+0.5; renderEditor(); syncCap();}));
+    const arrow = document.createElement('span'); arrow.textContent='→'; head.appendChild(arrow);
+    head.appendChild(mkInp('end'));
+    head.appendChild(mkBtn('−.5', ()=>{c.end=Math.max(0,c.end-0.5); renderEditor(); syncCap();}));
+    head.appendChild(mkBtn('+.5', ()=>{c.end=c.end+0.5; renderEditor(); syncCap();}));
+    const del = mkBtn('ဖျက်', ()=>{S.cues.splice(idx,1); renderEditor(); syncCap();});
+    del.style.marginLeft='auto'; del.style.color='#c00';
+    head.appendChild(del);
+    const ta = document.createElement('textarea');
+    ta.rows=2; ta.value=c.text;
+    ta.addEventListener('input', ()=>{c.text=ta.value; syncCap();});
+    d.appendChild(head); d.appendChild(ta);
+    z.appendChild(d);
+  });
+}
+$('bAddCue').addEventListener('click', ()=>{
+  const t = v.currentTime || 0;
+  S.cues.push({start:t, end:t+2, text:'စာတန်းအသစ်'});
+  S.cues.sort((a,b)=>a.start-b.start);
+  renderEditor(); syncCap();
+  $('cExp').classList.remove('hidden');
+});
+
+/* ---------- download ---------- */
+function showDownload(zone, blob, name){
+  zone.innerHTML='';
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.className='dl'; a.href=url; a.download=name;
+  a.textContent = '⬇ ' + name + ' ကို ဒေါင်းမယ် (' + (blob.size/1048576).toFixed(1) + ' MB)';
+  zone.appendChild(a);
+}
+
+/* ---------- burn-in export ---------- */
+function pickMime(){
+  if(!window.MediaRecorder) return '';
+  const cs = ['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+  for(const m of cs){try{if(MediaRecorder.isTypeSupported(m)) return m;}catch(e){}}
+  return '';
+}
+function ensureAudio(){
+  if(v._aud) return v._aud;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) return null;
+  const ctx = new AC();
+  const src = ctx.createMediaElementSource(v);
+  const dest = ctx.createMediaStreamDestination();
+  src.connect(ctx.destination); src.connect(dest);
+  v._aud = {ctx:ctx, dest:dest};
+  return v._aud;
+}
+function wrapLine(ctx, raw, maxW){
+  raw = String(raw);
+  if(ctx.measureText(raw).width <= maxW) return [raw];
+  const chars = Array.from(raw), out = [];
+  let cur = '';
+  for(const ch of chars){
+    if(cur && ctx.measureText(cur+ch).width > maxW){out.push(cur); cur=ch;}
+    else cur += ch;
+  }
+  if(cur) out.push(cur);
+  return out.length ? out : [raw];
+}
+function drawSub(ctx, text, W, H, scale){
+  const px = Math.max(12, Math.round(S.size * scale));
+  ctx.font = '700 ' + px + 'px ' + S.font;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
+  const maxW = W * 0.92;
+  let lines = [];
+  for(const raw of String(text).split('\n')) lines = lines.concat(wrapLine(ctx, raw, maxW));
+  const lh = px * 1.32;
+  let y = H - 42*scale - lh*(lines.length-1) - px*0.22;
+  ctx.lineWidth = Math.max(2, px/9);
+  ctx.strokeStyle = 'rgba(0,0,0,0.92)';
+  ctx.fillStyle = S.color;
+  for(const ln of lines){ ctx.strokeText(ln, W/2, y); ctx.fillText(ln, W/2, y); y += lh; }
+}
+async function exportBurnIn(){
+  const msg = $('expMsg'), dl = $('dlZone');
+  dl.innerHTML = ''; msg.textContent = '';
+  if(!S.videoFile || !S.cues.length){msg.textContent = 'Video နဲ့ စာတန်း အရင်ရွေးပါ'; return;}
+  const btn = $('bBurn'); btn.disabled = true;
+  let wake = null;
+  try{ wake = await navigator.wakeLock.request('screen').catch(()=>null); }catch(e){}
+  try{
+    try{ await document.fonts.load('700 40px ' + S.font); }catch(e){}
+    const vw = v.videoWidth || 1280, vh = v.videoHeight || 720;
+    const scale = vw / 760;
+    const canvas = document.createElement('canvas');
+    canvas.width = vw; canvas.height = vh;
+    const ctx = canvas.getContext('2d');
+    const stream = canvas.captureStream(30);
+    const aud = ensureAudio();
+    if(aud){
+      try{ await aud.ctx.resume(); }catch(e){}
+      aud.dest.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
+    }
+    const mime = pickMime();
+    const rec = new MediaRecorder(stream, mime ? {mimeType:mime, videoBitsPerSecond:8000000} : undefined);
+    const chunks = [];
+    rec.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise(r=>{ rec.onstop = r; });
+    let live = true, raf = 0;
+    const draw = ()=>{
+      if(!live) return;
+      ctx.drawImage(v, 0, 0, vw, vh);
+      const c = activeCue(v.currentTime);
+      if(c) drawSub(ctx, c.text, vw, vh, scale);
+      const p = Math.round(v.currentTime / (v.duration || 1) * 100);
+      msg.textContent = 'ထုတ်နေတယ်… ' + p + '%';
+      raf = requestAnimationFrame(draw);
+    };
+    v.currentTime = 0;
+    await v.play().catch(()=>{});
+    rec.start(500);
+    draw();
+    await new Promise(res=>{ v.onended = ()=>res(); });
+    live = false; cancelAnimationFrame(raf);
+    rec.stop(); await stopped;
+    v.onended = null;
+    try{ await v.pause(); }catch(e){}
+    const blob = new Blob(chunks, {type: rec.mimeType || mime || 'video/mp4'});
+    if(!blob.size) throw new Error('video ဖိုင် လွတ်သွားတယ် (0 bytes)');
+    const ext = (rec.mimeType || mime || '').indexOf('mp4') >= 0 ? 'mp4' : 'webm';
+    const name = baseName(S.videoName) + '.subtitled.' + ext;
+    showDownload(dl, blob, name);
+    msg.textContent = 'ထုတ်ပြီးပြီ ✓ (' + (blob.size/1048576).toFixed(1) + ' MB) — အပေါ်က လင့်ခ်ကို နှိပ်ပြီး ဒေါင်းပါ';
+  }catch(err){
+    msg.textContent = 'မအောင်မြင်ပါ: ' + (err && err.message || err);
+  }
+  if(wake){ try{ await wake.release(); }catch(e){} }
+  btn.disabled = false;
+}
+$('bBurn').addEventListener('click', exportBurnIn);
+
+/* ---------- remux export (ffmpeg.wasm, soft subtitles) ---------- */
+const FF_PKG_CDNS = [
+  'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/+esm',
+  'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/+esm',
+  'https://esm.sh/@ffmpeg/ffmpeg@0.12.10'
+];
+const FF_UTIL_CDNS = [
+  'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/+esm',
+  'https://unpkg.com/@ffmpeg/util@0.12.1/+esm',
+  'https://esm.sh/@ffmpeg/util@0.12.1'
+];
+const FF_CORE_CDNS = [
+  'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/',
+  'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/',
+  'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/'
+];
+async function firstImport(urls){
+  let lastErr = null;
+  for(const u of urls){ try{ return await import(u); }catch(e){ lastErr = e; } }
+  throw lastErr || new Error('import failed');
+}
+async function exportRemux(){
+  const msg = $('expMsg'), dl = $('dlZone');
+  dl.innerHTML = '';
+  if(!S.videoFile || !S.cues.length){msg.textContent = 'Video နဲ့ စာတန်း အရင်ရွေးပါ'; return;}
+  const btn = $('bRemux'); btn.disabled = true;
+  try{
+    msg.textContent = 'engine ပြင်နေတယ်… (ပထမအကြိမ်သာ down ရမယ်)';
+    const FF = await firstImport(FF_PKG_CDNS);
+    const UTIL = await firstImport(FF_UTIL_CDNS);
+    const ffmpeg = new FF.FFmpeg();
+    let loaded = false, lastErr = null;
+    for(const base of FF_CORE_CDNS){
+      try{
+        await ffmpeg.load({
+          coreURL: base + 'ffmpeg-core.js',
+          wasmURL: base + 'ffmpeg-core.wasm'
+        });
+        loaded = true; break;
+      }catch(e){ lastErr = e; }
+    }
+    if(!loaded) throw lastErr || new Error('ffmpeg engine down မရ');
+    msg.textContent = 'ဖိုင်တွေ ထည့်နေတယ်…';
+    const inName = 'in' + extOf(S.videoName);
+    await ffmpeg.writeFile(inName, await UTIL.fetchFile(S.videoFile));
+    await ffmpeg.writeFile('sub.srt', toSRT(S.cues));
+    msg.textContent = 'တွဲနေတယ်…';
+    await ffmpeg.exec(['-i', inName, '-i', 'sub.srt', '-c', 'copy', '-c:s', 'mov_text', '-movflags', '+faststart', 'out.mp4']);
+    const data = await ffmpeg.readFile('out.mp4');
+    const buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    const blob = new Blob([buf], {type:'video/mp4'});
+    const name = baseName(S.videoName) + '.subtitled.mp4';
+    showDownload(dl, blob, name);
+    msg.textContent = 'ထုတ်ပြီးပြီ ✓ (' + (blob.size/1048576).toFixed(1) + ' MB) — အပေါ်က လင့်ခ်ကို နှိပ်ပြီး ဒေါင်းပါ';
+    try{ ffmpeg.terminate(); }catch(e){}
+  }catch(err){
+    msg.textContent = 'မအောင်မြင်ပါ: ' + (err && err.message || err);
+  }
+  btn.disabled = false;
+}
+$('bRemux').addEventListener('click', exportRemux);
+
+/* ---------- init ---------- */
+applyStyle();
+</script>
+</body>
+</html>
